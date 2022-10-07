@@ -17,6 +17,7 @@ app.use("/invoices", invoicesRoutes)
 app.use(function(req, res, next) {
   const err = new ExpressError("Not Found", 404);
   return next(err);
+  // return res.send(404).json({message: "NOT FOUND"})
 });
 
 /** general error handler */
