@@ -4,7 +4,7 @@ const router = express.Router();
 const db = require("../db");
 const slugify = require("slugify");
 
-// GET --> list of companies
+// GET /companies --> list of companies
 // => {companies: [{code, name}, ...]}
 
 router.get("/", async (req, res, next) => {
@@ -16,24 +16,41 @@ router.get("/", async (req, res, next) => {
   }
 })
 
-// GET by code => {company: {code, name, description, invoices: [id, ...]}}
+/* GET /comapanies/[code] => 
+{company: {
+  code, name, description, 
+  invoices: [id, ...],
+  industries: [technology, ...]
+}}
 
+ */
 router.get("/:code", async (req, res, next) => {
   try {
     let { code } = req.params;
+    
     let respCompany = await db.query(
       `SELECT code, name, description FROM companies WHERE code = $1`, [code]);
-    
     let respInvoices = await db.query(
       `SELECT id FROM invoices WHERE comp_code = $1`, [code]);
+    let respIndustries = await db.query(
+      `SELECT i.industry
+          FROM industries AS i
+          LEFT JOIN companies_industries AS ci
+          ON i.code = ci.ind_code
+          LEFT JOIN companies AS c
+          ON ci.comp_code = c.code
+          WHERE c.code = $1`, [code]);
     
     if (respCompany.rows.length === 0) {
       throw new ExpressError(`No company found with code ${code}`, 404);
     }
     let company = respCompany.rows[0];
     let invoices = respInvoices.rows;
+    let industries = respIndustries.rows;
 
     company.invoices = invoices.map(invoice => invoice.id);
+    company.industries = industries.map(ind => ind.industry);
+    
     return res.json({ "company": company });
 
   } catch (e) {
@@ -61,7 +78,7 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// PUT/code - input {name, descrip}  =>  {company: {code, name, descrip}}
+// PUT /[code] - input {name, descrip}  =>  {company: {code, name, descrip}}
 
 router.put("/:code", async (req, res, next) => {
   try {
@@ -82,7 +99,7 @@ router.put("/:code", async (req, res, next) => {
   }
 })
 
-// DELETE = > {status: "deleted"}
+// DELETE /[code] = > {status: "deleted"}
 
 router.delete("/:code", async (req, res, next) => {
   try {
